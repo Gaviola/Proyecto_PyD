@@ -74,13 +74,28 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     vector<int> list;
-
+    int number_of_elements;
     if(rank == 0){
-        list = {5,7,23,1,9,10,45,0,3,1,2,3,5,65,1,213,-10,675};
-        mergeParalelo(list,0,size);
-
-        printVector(list);
+        list = {5,7,23,1,9,10,45,0,3,1,2,3,5,65,1,213,-10,675,666,123};
+        number_of_elements = list.size();
+        cout << "Soy el proceso: " << rank << " y tengo " << number_of_elements << " elementos" << endl;
     }
+
+    MPI_Bcast(&number_of_elements, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+
+    vector<int> sublist;
+    int elements_per_proc = number_of_elements / size;
+
+    cout << "Soy el proceso: " << rank << " y tengo " << elements_per_proc << " elementos" << endl;
+
+// Resize the sublist vector to hold the elements it will receive
+    sublist.resize(elements_per_proc);
+    MPI_Scatter(list.data(), elements_per_proc, MPI_INT, sublist.data(), number_of_elements, MPI_INT, 0, MPI_COMM_WORLD);
+    printVector(sublist);
+    mergeSort(sublist);
+    MPI_Gather(sublist.data(), elements_per_proc, MPI_INT, list.data(), elements_per_proc, MPI_INT, 0, MPI_COMM_WORLD);
+    (rank == 0) ? printVector(list) : void();
 
     // Este ejemplo usa 2n-1 procesos para un grado de paralelismo de n
     MPI_Finalize();
