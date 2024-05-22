@@ -1,6 +1,5 @@
 #include <mpi.h>
 #include <vector>
-
 using namespace std;
 
 void mergeParalelo(vector<int>& list){
@@ -14,7 +13,6 @@ int main() {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-
     vector<int> list;
     if(rank == 0){
         list = {5,7,23,1,9,10,45,0,3};
