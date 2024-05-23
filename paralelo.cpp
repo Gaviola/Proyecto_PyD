@@ -9,6 +9,7 @@
 using namespace std;
 
 void parallelMergeSort(vector<int>&, int, int);
+void sequentialMerge(vector<int>& list, int world_size, int local_num_elements);
 
 int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
@@ -20,7 +21,7 @@ int main(int argc, char** argv) {
     vector<int> list;
 
     if (rank == 0) {
-        list = readFile("/home/andres/Documents/LCC/PPD/Proyecto_PyD/randomListGenerator/results/randomList-1000.txt");
+        list = readFile("/home/andres/Documents/LCC/PPD/Proyecto_PyD/randomListGenerator/results/randomList-100000.txt");
         cout << "Cantidad de elementos: " << list.size() << endl;
     }
 
@@ -62,23 +63,28 @@ void parallelMergeSort(vector<int>& list, int rank, int world_size) {
     mergeSort(local_list);
 
     //Une las listas en el proceso 0
-    vector<int> merged_list(num_elements);
-    MPI_Gather(local_list.data(), local_num_elements, MPI_INT, merged_list.data(), local_num_elements, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(local_list.data(), local_num_elements, MPI_INT, list.data(), local_num_elements, MPI_INT, 0, MPI_COMM_WORLD);
 
     // Se unen la listas parciales en el proceso 0
-    vector<int> final_list;
     if (rank == 0) {
-        int current_index = 0;
-        for (int i = 0; i < world_size; ++i) {
-            vector<int> temp_list(merged_list.begin() + current_index, merged_list.begin() + current_index + local_num_elements);
-            if (final_list.empty()) {
-                final_list = temp_list;
-            } else {
-                final_list = merge(final_list, temp_list);
-            }
-            current_index += local_num_elements;
-        }
-        list = final_list;
+
+        sequentialMerge(list, world_size, local_num_elements);
     }
     //printList(final_list);
+}
+
+void sequentialMerge(vector<int>& list, int world_size, int local_num_elements) {
+    vector<int> final_list;
+    int current_index = 0;
+    for (int i = 0; i < world_size; ++i) {
+        vector<int> temp_list(list.begin() + current_index, list.begin() + current_index + local_num_elements);
+        if (final_list.empty()) {
+            final_list = temp_list;
+            final_list = merge(final_list, temp_list);
+        } else {
+            current_index += local_num_elements;
+        }
+    }
+
+    list = final_list;
 }
