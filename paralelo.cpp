@@ -21,18 +21,33 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     vector<int> list;
+    string path = "randomListGenerator/results/randomList-10000000.txt";
 
     if (rank == 0) {
-        list = readFile("randomListGenerator/results/randomList-1000000.txt");
+        list = readFile(path);
         cout << "Cantidad de elementos: " << list.size() << endl;
     }
 
     auto start = chrono::high_resolution_clock::now();
     parallelMergeSort(list, rank, world_size);
 
+    chrono::duration<double, std::milli> parallelDiff;
     if (rank == 0) {
         auto end = chrono::high_resolution_clock::now();
-        chrono::duration<double, std::milli> diff = end - start;
+        parallelDiff = end - start;
+        bool isOrdered = checkOrder(list);
+
+        cout << "Tiempo de ejecución paralelo: " << parallelDiff.count() << " ms\n";
+    }
+
+    MPI_Finalize();
+
+    if (rank == 0) {
+        list = readFile(path);
+        auto sstart = chrono::high_resolution_clock::now();
+        mergeSort(list);
+        auto send = chrono::high_resolution_clock::now();
+        chrono::duration<double, std::milli> sdiff = send - sstart;
         bool isOrdered = checkOrder(list);
         if (isOrdered) {
             cout << "La lista está ordenada" << endl;
@@ -40,11 +55,11 @@ int main(int argc, char** argv) {
             cout << "La lista no está ordenada" << endl;
         }
 
-        cout << "Tiempo de ejecución: " << diff.count() << " ms\n";
+        cout << "Tiempo de ejecución secuencial: " << sdiff.count() << " ms\n";
 
+        cout << "Speedup: " << sdiff.count() / parallelDiff.count() << endl;
     }
 
-    MPI_Finalize();
     return 0;
 }
 

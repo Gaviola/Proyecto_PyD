@@ -29,22 +29,25 @@ void mergeSort(vector<int>& list) {
 
 // Merge
 vector<int> merge(std::vector<int>& izquierda, std::vector<int>& derecha) {
+    int totalSize = izquierda.size() + derecha.size();
     vector<int> listaOrdenada;
+    listaOrdenada.reserve(totalSize); // Reserve space in the vector
+
     int i = 0, j = 0;
     while (i < izquierda.size() || j < derecha.size()) {
         if (i < izquierda.size() && j < derecha.size()) {
             if (izquierda[i] < derecha[j]) {
-                listaOrdenada.push_back(izquierda[i]);
+                listaOrdenada.emplace_back(std::move(izquierda[i])); // Use std::move to avoid copying
                 i++;
             } else {
-                listaOrdenada.push_back(derecha[j]);
+                listaOrdenada.emplace_back(std::move(derecha[j])); // Use std::move to avoid copying
                 j++;
             }
         } else if (i < izquierda.size()) {
-            listaOrdenada.push_back(izquierda[i]);
+            listaOrdenada.emplace_back(std::move(izquierda[i])); // Use std::move to avoid copying
             i++;
         } else if (j < derecha.size()) {
-            listaOrdenada.push_back(derecha[j]);
+            listaOrdenada.emplace_back(std::move(derecha[j])); // Use std::move to avoid copying
             j++;
         }
     }

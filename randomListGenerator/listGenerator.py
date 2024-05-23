@@ -10,7 +10,7 @@ def writeListToFile(lst, filename):
             f.write(f"{item}\n")
 
 if __name__ == "__main__":
-    exponents = [3, 4, 5, 6,7]
+    exponents = [7,8,9]
     for exp in exponents:
         n = 10 ** exp
         lst = generateList(n)
