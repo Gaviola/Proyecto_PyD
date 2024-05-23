@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     vector<int> list;
 
     if (rank == 0) {
-        list = readFile("/home/andres/Documents/LCC/PPD/Proyecto_PyD/randomListGenerator/results/randomList-1000000.txt");
+        list = readFile("randomListGenerator/results/randomList-1000000.txt");
         cout << "Cantidad de elementos: " << list.size() << endl;
     }
 
