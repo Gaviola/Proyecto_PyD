@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     vector<int> list;
 
     if (rank == 0) {
-        list = readFile("/home/andres/Documents/LCC/PPD/Proyecto_PyD/randomListGenerator/results/randomList-100000.txt");
+        list = readFile("/home/andres/Documents/LCC/PPD/Proyecto_PyD/randomListGenerator/results/randomList-13.txt");
         cout << "Cantidad de elementos: " << list.size() << endl;
     }
 
@@ -39,6 +39,7 @@ int main(int argc, char** argv) {
         }
 
         cout << "Tiempo de ejecución: " << diff.count() << " ms\n";
+        printVector(list);
 
     }
 
@@ -67,7 +68,6 @@ void parallelMergeSort(vector<int>& list, int rank, int world_size) {
 
     // Se unen la listas parciales en el proceso 0
     if (rank == 0) {
-
         sequentialMerge(list, world_size, local_num_elements);
     }
     //printList(final_list);
