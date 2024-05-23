@@ -3,13 +3,10 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include "utils.h"
+#include "reader.h"
 
 using namespace std;
-
-void mergeSort(vector<int>&);
-vector<int> merge(const vector<int>&, const vector<int>&);
-void checkOrder(vector<int>&);
-void printList(vector<int>&);
 
 void parallelMergeSort(vector<int>&, int, int);
 
@@ -23,20 +20,8 @@ int main(int argc, char** argv) {
     vector<int> list;
 
     if (rank == 0) {
-        ifstream file("/home/fgaviola/CLionProjects/Proyecto_PyD/randomListGenerator/results/randomList-1000000.txt");
-        string linea;
-        int num;
-
-        if (file.is_open()) {
-            while (getline(file, linea)) {
-                num = stoi(linea);
-                list.push_back(num);
-            }
-        } else {
-            cout << "No se pudo abrir el archivo" << endl;
-            MPI_Abort(MPI_COMM_WORLD, 1);
-        }
-        file.close();
+        list = readFile("/home/andres/Documents/LCC/PPD/Proyecto_PyD/randomListGenerator/results/randomList-1000.txt");
+        cout << "Cantidad de elementos: " << list.size() << endl;
     }
 
     auto start = chrono::high_resolution_clock::now();
@@ -45,8 +30,15 @@ int main(int argc, char** argv) {
     if (rank == 0) {
         auto end = chrono::high_resolution_clock::now();
         chrono::duration<double, std::milli> diff = end - start;
-        checkOrder(list);
+        bool isOrdered = checkOrder(list);
+        if (isOrdered) {
+            cout << "La lista está ordenada" << endl;
+        } else {
+            cout << "La lista no está ordenada" << endl;
+        }
+
         cout << "Tiempo de ejecución: " << diff.count() << " ms\n";
+
     }
 
     MPI_Finalize();
@@ -89,58 +81,4 @@ void parallelMergeSort(vector<int>& list, int rank, int world_size) {
         list = final_list;
     }
     //printList(final_list);
-}
-
-void mergeSort(vector<int>& list) {
-    if (list.size() <= 1) {
-        return;
-    } else {
-        int medio = list.size() / 2;
-        vector<int> izquierda(list.begin(), list.begin() + medio);
-        vector<int> derecha(list.begin() + medio, list.end());
-        mergeSort(izquierda);
-        mergeSort(derecha);
-        list = merge(izquierda, derecha);
-    }
-}
-
-vector<int> merge(const vector<int>& izquierda, const vector<int>& derecha) {
-    vector<int> listaOrdenada;
-    unsigned i = 0, j = 0;
-
-    while (i < izquierda.size() && j < derecha.size()) {
-        if (izquierda[i] < derecha[j]) {
-            listaOrdenada.push_back(izquierda[i]);
-            i++;
-        } else {
-            listaOrdenada.push_back(derecha[j]);
-            j++;
-        }
-    }
-    while (i < izquierda.size()) {
-        listaOrdenada.push_back(izquierda[i]);
-        i++;
-    }
-    while (j < derecha.size()) {
-        listaOrdenada.push_back(derecha[j]);
-        j++;
-    }
-    return listaOrdenada;
-}
-
-void checkOrder(vector<int>& list) {
-    for (int i = 0; i < list.size() - 1; i++) {
-        if (list[i] > list[i + 1]) {
-            cout << "La lista no está ordenada en la posición " << i << endl;
-            return;
-        }
-    }
-    cout << "La lista está ordenada" << endl;
-}
-
-void printList(vector<int>& list) {
-    for (int i : list) {
-        cout << i << " ";
-    }
-    cout << endl;
 }
