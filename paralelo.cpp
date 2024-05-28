@@ -9,7 +9,7 @@
 
 using namespace std;
 
-void parallelMergeSort(vector<int>&, int, int);
+vector<double> parallelMergeSort(vector<int>&, int, int);
 void sequentialMerge(vector<int>& list, int world_size, int local_num_elements);
 void mergeK(vector<int>& list, int worldSize, int numElements);
 
@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     vector<int> list;
-    string path = "randomListGenerator/results/randomList-10000000.txt";
+    string path = "randomListGenerator/results/randomList-13.txt";
 
     if (rank == 0) {
         list = readFile(path);
@@ -29,18 +29,24 @@ int main(int argc, char** argv) {
     }
 
     auto start = chrono::high_resolution_clock::now();
-    parallelMergeSort(list, rank, world_size);
+    vector<double> comunitactionTime = parallelMergeSort(list, rank, world_size);
 
     chrono::duration<double, std::milli> parallelDiff;
-    if (rank == 0) {
-        auto end = chrono::high_resolution_clock::now();
-        parallelDiff = end - start;
-        bool isOrdered = checkOrder(list);
+    auto end = chrono::high_resolution_clock::now();
+    parallelDiff = end - start;
 
+    if (rank == 0) {
+        bool isOrdered = checkOrder(list);
         cout << "Tiempo de ejecución paralelo: " << parallelDiff.count() << " ms\n";
+        //Imprimir porcentaje de tiempo de comunicaciones
+        cout << "Porcentaje de tiempo de comunicaciones: " << (comunitactionTime[0] / parallelDiff.count()) * 100 << "%" << endl;
+        //Imprimir porcentaje de tiempo de trabajo del master
+        cout << "Porcentaje de tiempo de trabajo del master: " << (comunitactionTime[1] / parallelDiff.count()) * 100 << "%" << endl;
     }
 
+    cout << "Soy el proceso " << rank << " y mi porcentaje de tiempo de trabajo es: " << (comunitactionTime[2] / parallelDiff.count()) * 100 << "%" << endl;
     MPI_Finalize();
+
 
     if (rank == 0) {
         list = readFile(path);
@@ -63,29 +69,61 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-void parallelMergeSort(vector<int>& list, int rank, int world_size) {
+vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
     int num_elements;
+    double masterTimeDiff = 0;
+    double workDiff = 0;
     if (rank == 0) {
         num_elements = list.size();
     }
+    //Medimos tiempo de comunicaciones
+    auto startComuniaction = chrono::high_resolution_clock::now();
     // Envía el número total de elementos a todos los nodos
     MPI_Bcast(&num_elements, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    //Termina primera comunicación
+    auto endComuniaction = chrono::high_resolution_clock::now();
     int local_num_elements = num_elements / world_size;
     vector<int> local_list(local_num_elements);
 
+    //Medir segunda comunicación
+    auto startComuniaction2 = chrono::high_resolution_clock::now();
     //Divide en partes iguales la lista en base a la cantidad de procesos
     MPI_Scatter(list.data(), local_num_elements, MPI_INT, local_list.data(), local_num_elements, MPI_INT, 0, MPI_COMM_WORLD);
-
+    //Termina segunda comunicación
+    auto endComuniaction2 = chrono::high_resolution_clock::now();
+    //Medir tiempo de cada proceso en ordenar localmente
+    auto startWork = chrono::high_resolution_clock::now();
     //Ordena localmente
     mergeSort(local_list);
-
+    //Termina tiempo de trabajo
+    auto endWork = chrono::high_resolution_clock::now();
+    //Calculo de tiempo de trabajo
+    workDiff = chrono::duration<double, std::milli>(endWork - startWork).count();
+    //Terecer comunicación
+    auto startComuniaction3 = chrono::high_resolution_clock::now();
     //Une las listas en el proceso 0
     MPI_Gather(local_list.data(), local_num_elements, MPI_INT, list.data(), local_num_elements, MPI_INT, 0, MPI_COMM_WORLD);
+    //Termina tercera comunicación
+    auto endComuniaction3 = chrono::high_resolution_clock::now();
     // Se unen la listas parciales en el proceso 0
     if (rank == 0) {
+        //Timepo de trabajo del master
+        auto startMasterWOrk = chrono::high_resolution_clock::now();
         mergeK(list, world_size, local_num_elements);
+        printVector(list);
+        //Termina trabajo del master
+        auto endMasterWork = chrono::high_resolution_clock::now();
+        //calculo de tiempo de trabajo del master
+        masterTimeDiff = chrono::duration<double, std::milli>(endMasterWork - startMasterWOrk).count();
     }
     //printList(final_list);
+    //Calcular tiempo en milisegundos de las comunicaciones
+    chrono::duration<double, std::milli> communicationDiff = endComuniaction - startComuniaction + endComuniaction2 - startComuniaction2 + endComuniaction3 - startComuniaction3;
+    vector<double> communicationTimes(3);
+    communicationTimes[0] = communicationDiff.count();
+    communicationTimes[1] = masterTimeDiff;
+    communicationTimes[2] = workDiff;
+    return communicationTimes;
 }
 
 void mergeK(vector<int>& list, int worldSize, int numElements) {
