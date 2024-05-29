@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     vector<int> list;
-    string path = "randomListGenerator/results/randomList-13.txt";
+    string path = "randomListGenerator/results/randomList-1000000.txt";
 
     if (rank == 0) {
         list = readFile(path);
@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
 vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
     int num_elements;
     double masterTimeDiff = 0;
+    vector<int> reamining_elements_list;
     double workDiff = 0;
     if (rank == 0) {
         num_elements = list.size();
@@ -83,8 +84,8 @@ vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
     //Termina primera comunicación
     auto endComuniaction = chrono::high_resolution_clock::now();
     int local_num_elements = num_elements / world_size;
+    int remaining_elements = num_elements % world_size;
     vector<int> local_list(local_num_elements);
-
     //Medir segunda comunicación
     auto startComuniaction2 = chrono::high_resolution_clock::now();
     //Divide en partes iguales la lista en base a la cantidad de procesos
@@ -109,8 +110,21 @@ vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
     if (rank == 0) {
         //Timepo de trabajo del master
         auto startMasterWOrk = chrono::high_resolution_clock::now();
+        //agrego los elementos restantes a la lista de elementos restantes
+        for (int i = 0; i < remaining_elements; i++) {
+            reamining_elements_list.push_back(list[world_size * local_num_elements + i]);
+        }
+        //Ordena la lista final
         mergeK(list, world_size, local_num_elements);
-        printVector(list);
+        //Verifico si hay elementos restantes
+        if (remaining_elements != 0) {
+            //Los inserto en la lista de manera ordenada
+            for(int valor : reamining_elements_list) {
+                //Inserto los elementos restantes en la lista final de manera ordenada
+                auto it = lower_bound(list.begin(), list.end(), valor);
+                list.insert(it, valor);
+            }
+        }
         //Termina trabajo del master
         auto endMasterWork = chrono::high_resolution_clock::now();
         //calculo de tiempo de trabajo del master
@@ -141,14 +155,17 @@ void mergeK(vector<int>& list, int worldSize, int numElements) {
         }
     }
 
-    // Merge the sorted lists
+    // Create a new list to store the merged result
+    vector<int> mergedList(worldSize * numElements);
     int index = 0;
+
+    // Merge the sorted lists
     while (!minHeap.empty()) {
         auto minElement = minHeap.top();
         minHeap.pop();
 
         // Add the minimum element to the merged list
-        list[index++] = minElement.first;
+        mergedList[index++] = minElement.first;
 
         // If there are more elements in the same sublist, add the next element to the min heap
         if (current_index[minElement.second] < numElements) {
@@ -156,6 +173,9 @@ void mergeK(vector<int>& list, int worldSize, int numElements) {
             ++current_index[minElement.second];
         }
     }
+
+    // Copy the merged list back to the original list
+    list = mergedList;
 }
 
 void sequentialMerge(vector<int>& list, int world_size, int local_num_elements) {
