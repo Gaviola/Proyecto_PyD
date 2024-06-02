@@ -17,10 +17,12 @@ int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
 
     int world_size, rank;
+    // Inicializar variables de mpi
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     vector<int> list;
+    // Obtener path al archivo de entrada
     string path = "randomListGenerator/results/randomList-1000000.txt";
 
     if (rank == 0) {
@@ -29,6 +31,8 @@ int main(int argc, char** argv) {
     }
 
     auto start = chrono::high_resolution_clock::now();
+    // Ordenar las listas de forma paralela
+    // Obtener el tiempo de comunicacion
     vector<double> comunitactionTime = parallelMergeSort(list, rank, world_size);
 
     chrono::duration<double, std::milli> parallelDiff;
@@ -49,11 +53,14 @@ int main(int argc, char** argv) {
 
 
     if (rank == 0) {
+        // Luego ejecutamos de manera secuencial para comparar
         list = readFile(path);
         auto sstart = chrono::high_resolution_clock::now();
         mergeSort(list);
         auto send = chrono::high_resolution_clock::now();
         chrono::duration<double, std::milli> sdiff = send - sstart;
+
+        // Verificar que la lista este ordenada
         bool isOrdered = checkOrder(list);
         if (isOrdered) {
             cout << "La lista está ordenada" << endl;
@@ -61,6 +68,7 @@ int main(int argc, char** argv) {
             cout << "La lista no está ordenada" << endl;
         }
 
+        // Imprimir los resultados
         cout << "Tiempo de ejecución secuencial: " << sdiff.count() << " ms\n";
 
         cout << "Speedup: " << sdiff.count() / parallelDiff.count() << endl;
@@ -79,6 +87,7 @@ vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
     }
     //Medimos tiempo de comunicaciones
     auto startComuniaction = chrono::high_resolution_clock::now();
+
     // Envía el número total de elementos a todos los nodos
     MPI_Bcast(&num_elements, 1, MPI_INT, 0, MPI_COMM_WORLD);
     //Termina primera comunicación
@@ -130,7 +139,6 @@ vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
         //calculo de tiempo de trabajo del master
         masterTimeDiff = chrono::duration<double, std::milli>(endMasterWork - startMasterWOrk).count();
     }
-    //printList(final_list);
     //Calcular tiempo en milisegundos de las comunicaciones
     chrono::duration<double, std::milli> communicationDiff = endComuniaction - startComuniaction + endComuniaction2 - startComuniaction2 + endComuniaction3 - startComuniaction3;
     vector<double> communicationTimes(3);
@@ -140,14 +148,15 @@ vector<double> parallelMergeSort(vector<int>& list, int rank, int world_size) {
     return communicationTimes;
 }
 
+// Algoritmo eficiente para fusionar n listas ordenadas
 void mergeK(vector<int>& list, int worldSize, int numElements) {
-    // Array to keep track of the current index in each sublist
+    // Array para trackear el indice dentro de cada sublista
     vector<int> current_index(worldSize, 0);
 
-    // Priority queue (min heap) to store the elements from different sublists
+    // Min heap para guardar los elementos de cada sublista
     priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> minHeap;
 
-    // Initialize the min heap with the first element from each sublist
+    // Inicializamos el heap con el primer elemento de cada lista
     for (int i = 0; i < worldSize; ++i) {
         if (current_index[i] < numElements) {
             minHeap.push({list[i * numElements + current_index[i]], i});
@@ -155,29 +164,31 @@ void mergeK(vector<int>& list, int worldSize, int numElements) {
         }
     }
 
-    // Create a new list to store the merged result
+    // Crear una nueva lista que guarde el resultado anterior
     vector<int> mergedList(worldSize * numElements);
     int index = 0;
 
-    // Merge the sorted lists
+    // Mergear las listas ordenadas
     while (!minHeap.empty()) {
         auto minElement = minHeap.top();
         minHeap.pop();
 
-        // Add the minimum element to the merged list
+        // Añadir el menor elementos a la lista final
         mergedList[index++] = minElement.first;
 
-        // If there are more elements in the same sublist, add the next element to the min heap
+        // si hay elementos restantes en la lista actual, añadir el siguiente elemento al heap
         if (current_index[minElement.second] < numElements) {
             minHeap.push({list[minElement.second * numElements + current_index[minElement.second]], minElement.second});
             ++current_index[minElement.second];
         }
     }
 
-    // Copy the merged list back to the original list
+    // Copiar la lista ordenada a la lista original
     list = mergedList;
 }
 
+
+// Merge sort secuencial
 void sequentialMerge(vector<int>& list, int world_size, int local_num_elements) {
     vector<int> final_list;
     int current_index = 0;
